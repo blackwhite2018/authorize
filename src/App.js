@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import shortid from 'shortid';
 import { fetchDataToken, fetchDataInfo } from './Authorize';
+import LogIn from './LogIn';
+import News from './News';
 
 const App = () => {
 	const [dataAuth, setDataAuth] = useState({
@@ -67,27 +69,17 @@ const App = () => {
 			getNews();
 		}
 	}, [userInfo]);
-
+	
 	return (
 		<>
 			{
-				userInfo !== null ? null : <form name="form" onSubmit={ handleSubmit }>
-					<input type="text" name="login" value={ login } onChange={ handleChange } />
-					<input type="password" name="password" value={ password } onChange={ handleChange } />
-					<input type="submit" value="sign in" />
-				</form>
+				userInfo !== null ? null : <LogIn login={ login } password={ password } handleSubmit={ handleSubmit } handleChange={ handleChange } />
 			}
 			{
 				news === null ? null : (<ul>
 					{
 						news.map(newInfo => {
-							return (
-								<div className="news" key={ newInfo.id }>
-									<img src={ newInfo.image } alt={ newInfo.title } />
-									<h3>{ newInfo.title }</h3>
-									<p>{ newInfo.content }</p>
-								</div>
-							);
+							return <News key={ newInfo.id } news={ newInfo } />;
 						})
 					}
 				</ul>)
