@@ -1,90 +1,86 @@
 import React, { useState, useEffect } from 'react';
-import shortid from 'shortid';
 import { fetchDataToken, fetchDataInfo } from './Authorize';
+import { TokenContext } from './Context';
 import LogIn from './LogIn';
+import LogOut from './LogOut';
 import News from './News';
 
 const App = () => {
-	const [dataAuth, setDataAuth] = useState({
-		login: '',
-		password: ''
-	});
+	const [token, setToken] = useState(null);
 	const [userInfo, setUserInfo] = useState(null);
-	const [news, setNews] = useState(null);
-	
-	const { login, password } = dataAuth;
+	const [isLoadToken, setIsLoadInfo] = useState(false);
+	const [dataAuth, setDataAuth] = useState(null);
 
-	const handleChange = ({ target: { name, value } }) => {
-		setDataAuth(prevValue => {
-			return {
-				...prevValue,
-				[name]: value
-			};
-		});
+	const setNewDataAuth = dataAuth => {
+		setDataAuth(dataAuth);
 	};
 
-	const handleSubmit = evt => {
-		evt.preventDefault();
-
-		const fetchData = async () => {
-			const url = 'http://localhost:7070/auth';
-
+	const fetchData = async url => {
+		try {
 			const { token } = await fetchDataToken(url, {
 				method: 'POST',
-				body: JSON.stringify({login: 'vasya', password: 'password'})
+				body: JSON.stringify(dataAuth)
 			});
 
-			const userInfo = await fetchDataInfo('http://localhost:7070/private/me', 'GET', token);
-			const news = await fetchDataInfo('http://localhost:7070/private/news', 'GET', token);
+			if (token.statusCode === 400) {
+				console.log(1, 2)
+			}
 
+			const userInfo = await fetchDataInfo('http://localhost:7070/private/me', 'GET', token);
+
+			setToken(token);
 			setUserInfo(userInfo);
-			setNews(news);
+			setIsLoadInfo(prev => ({...prev, isLoadToken: true}));
 
 			localStorage.setItem('userInfo', JSON.stringify({
 				token: token,
 				userInfo: userInfo
 			}));
-		};
 
-		fetchData();
+		} catch (e) {
+			if (e instanceof SyntaxError) {
+				console.error(e);
+				return;
+			}
+		}
 	};
 
 	useEffect(() => {
-		let user = localStorage.getItem('userInfo');
+		let userData = localStorage.getItem('userInfo');
 
-		if (user !== null) {
-			user = JSON.parse(user);
+		if (userData !== null) {
+			const { token, userInfo } = JSON.parse(userData);
 
-			const getNews = async () => {
-				const newsInfo = await fetchDataInfo('http://localhost:7070/private/news', 'GET', user.token);
-				const newsIds = newsInfo.reduce((acc, news) => {
-					return [...acc, {
-						id: shortid.generate(),
-						...news
-					}]
-				}, []);
-				setNews(newsIds);
-			};
-
-			getNews();
+			setUserInfo(userInfo);
+			setIsLoadInfo(prev => ({...prev, isLoadToken: true}));
+			setToken(token);
+		} else {
+			if (dataAuth !== null) {
+				fetchData('http://localhost:7070/auth');
+			}
 		}
-	}, [userInfo]);
-	
+	}, [token, dataAuth]);
+
+	const handleProfileOut = () => {
+		localStorage.removeItem('userInfo');
+		setToken(null);
+		setUserInfo(null);
+		setIsLoadInfo(false);
+		setDataAuth(null);
+
+	};
+
 	return (
-		<>
-			{
-				userInfo !== null ? null : <LogIn login={ login } password={ password } handleSubmit={ handleSubmit } handleChange={ handleChange } />
-			}
-			{
-				news === null ? null : (<ul>
-					{
-						news.map(newInfo => {
-							return <News key={ newInfo.id } news={ newInfo } />;
-						})
-					}
-				</ul>)
-			}
-		</>
+		<div className="container">
+			<TokenContext.Provider value={ token }>
+				<div className="row">
+					{ isLoadToken ? <LogOut info={ userInfo } handleProfileOut={ handleProfileOut } /> : <LogIn getDataAuthorize={ setNewDataAuth } /> }
+				</div>
+				<div className="row">
+					{ isLoadToken && <News /> }
+				</div>
+			</TokenContext.Provider>
+		</div>
 	);
 };
 
